@@ -1,23 +1,10 @@
 from __future__ import annotations
 
 import re
-from functools import lru_cache
-
-from transformers import pipeline
 
 from models.schemas import ExtractedEntities
-
-
-SYMPTOM_LEXICON = {
-    "fever",
-    "chest pain",
-    "hypertension",
-    "diabetes",
-    "fatigue",
-    "shortness of breath",
-    "cough",
-    "headache",
-}
+from nlp.entity_extractor import extract_tokens
+from nlp.symptom_mapper import map_severity, map_symptoms
 
 BODY_SYSTEMS = {
     "cardiovascular": ["chest pain", "palpitations", "hypertension"],
@@ -25,29 +12,12 @@ BODY_SYSTEMS = {
     "endocrine": ["diabetes", "thirst", "polyuria"],
 }
 
-SEVERITY_TERMS = {"mild", "moderate", "severe", "acute", "chronic", "worsening"}
-
-
-@lru_cache(maxsize=1)
-def _ner_pipeline():
-    return pipeline(
-        "token-classification",
-        model="dmis-lab/biobert-base-cased-v1.2",
-        aggregation_strategy="simple",
-    )
-
-
-def _match_lexicon(text: str) -> list[str]:
-    lowered = text.lower()
-    found = [token for token in SYMPTOM_LEXICON if token in lowered]
-    return sorted(set(found))
-
 
 def extract_entities(text: str) -> ExtractedEntities:
     entities = ExtractedEntities()
-    entities.symptoms = _match_lexicon(text)
+    entities.symptoms = map_symptoms(text)
 
-    ner = _ner_pipeline()(text)
+    ner = extract_tokens(text)
     diseases, meds = set(), set()
     for item in ner:
         token = item.get("word", "").strip()
@@ -69,6 +39,6 @@ def extract_entities(text: str) -> ExtractedEntities:
             systems.append(system)
     entities.body_systems = systems
 
-    entities.severity_terms = sorted({word for word in SEVERITY_TERMS if re.search(rf"\b{word}\b", normalized)})
+    entities.severity_terms = map_severity(text)
     entities.temporal_patterns = re.findall(r"\b(\d+\s*(?:days?|weeks?|months?|years?))\b", normalized)
     return entities

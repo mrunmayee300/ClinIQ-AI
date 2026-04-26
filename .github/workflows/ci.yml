@@ -34,3 +34,21 @@ jobs:
           node-version: "20"
       - run: npm install
       - run: npm run build
+
+  ml-eval-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Build processed dataset
+        run: |
+          python scripts/load_medical_datasets.py --source datasets/Symptom2Disease.csv --out datasets/raw/symptom2disease_raw.csv
+          python scripts/preprocess_clinical_records.py --input datasets/raw/symptom2disease_raw.csv --output datasets/processed/clinical_records.csv
+      - name: Train classifier
+        run: python scripts/train_disease_classifier.py --input datasets/processed/clinical_records.csv --model-dir backend/models
+      - name: Evaluate classifier
+        run: python scripts/evaluate_classifier.py --input datasets/processed/clinical_records.csv --model-dir backend/models

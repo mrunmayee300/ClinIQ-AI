@@ -60,6 +60,8 @@ class DiagnoseResponse(BaseModel):
     summary: ClinicalSummary
     agent_trace: list[dict[str, Any]]
     retrieval_context: list[dict[str, Any]]
+    retrieval_latency_ms: float = 0.0
+    total_latency_ms: float = 0.0
 
 
 class HealthResponse(BaseModel):

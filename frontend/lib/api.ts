@@ -23,3 +23,13 @@ export async function diagnose(payload: DiagnosePayload) {
   if (!response.ok) throw new Error("Diagnosis request failed");
   return response.json();
 }
+
+export async function retrieveMedicalContext(payload: DiagnosePayload) {
+  const response = await fetch(`${API_BASE}/retrieve-medical-context`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) throw new Error("Medical context retrieval failed");
+  return response.json();
+}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { diagnose } from "@/lib/api";
+import { diagnose, retrieveMedicalContext } from "@/lib/api";
 
 type ResultShape = {
   disease_ranking: { disease: string; confidence: number; reasoning: string }[];
@@ -12,6 +12,9 @@ type ResultShape = {
     disclaimer: string;
   };
   agent_trace: { agent: string; status: string }[];
+  retrieval_context: { source: string; section: string; text: string }[];
+  retrieval_latency_ms: number;
+  total_latency_ms: number;
 };
 
 const defaultPayload = {
@@ -28,6 +31,8 @@ export function Dashboard() {
   const [payload, setPayload] = useState(defaultPayload);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ResultShape | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [retrievedContext, setRetrievedContext] = useState<{ source: string; section: string; text: string }[]>([]);
 
   const chartData = useMemo(
     () =>
@@ -43,8 +48,19 @@ export function Dashboard() {
     try {
       const response = await diagnose(payload);
       setResult(response);
+      setRetrievedContext(response.retrieval_context ?? []);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchContext = async () => {
+    setContextLoading(true);
+    try {
+      const response = await retrieveMedicalContext(payload);
+      setRetrievedContext(response.retrieval_context ?? []);
+    } finally {
+      setContextLoading(false);
     }
   };
 
@@ -60,6 +76,9 @@ export function Dashboard() {
           />
           <button className="mt-4 w-full rounded-md bg-cyan-500 px-3 py-2 font-semibold text-slate-900" onClick={submit}>
             {loading ? "Analyzing..." : "Run Diagnosis"}
+          </button>
+          <button className="mt-2 w-full rounded-md bg-slate-700 px-3 py-2 text-sm" onClick={fetchContext}>
+            {contextLoading ? "Retrieving context..." : "Retrieve Context"}
           </button>
         </section>
 
@@ -77,6 +96,9 @@ export function Dashboard() {
             </ResponsiveContainer>
           </div>
           <p className="mt-4 text-sm text-slate-300">{result?.summary?.disclaimer}</p>
+          <div className="mt-3 rounded-md bg-slate-900 p-3 text-sm text-slate-300">
+            Latency - retrieval: {result?.retrieval_latency_ms ?? 0} ms | total: {result?.total_latency_ms ?? 0} ms
+          </div>
         </section>
 
         <section className="rounded-xl bg-card p-5">
@@ -95,6 +117,20 @@ export function Dashboard() {
             {(result?.agent_trace ?? []).map((node, idx) => (
               <div key={`${node.agent}-${idx}`} className="rounded-md bg-slate-900 p-2">
                 {node.agent}: {node.status}
+              </div>
+            ))}
+          </div>
+        </section>
+        <section className="rounded-xl bg-card p-5 lg:col-span-3">
+          <h3 className="mb-3 font-semibold">Retrieved Medical Context</h3>
+          <div className="space-y-2 text-sm text-slate-300">
+            {retrievedContext.length === 0 && <p>No context retrieved yet.</p>}
+            {retrievedContext.slice(0, 5).map((ctx, idx) => (
+              <div key={`${ctx.source}-${idx}`} className="rounded-md bg-slate-900 p-3">
+                <p className="text-cyan-300">
+                  {ctx.source} ({ctx.section})
+                </p>
+                <p className="mt-1">{ctx.text.slice(0, 320)}...</p>
               </div>
             ))}
           </div>

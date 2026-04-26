@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.dependencies import require_jwt
 from database.session import get_session
 from models.schemas import AnalyzeSymptomsResponse, DiagnoseResponse, HealthResponse, PatientInput
+from rag.retriever import MedicalRetriever
 from services.diagnosis_service import DiagnosisService
 from services.report_service import ReportService
 
@@ -17,6 +18,11 @@ router = APIRouter()
 @lru_cache(maxsize=1)
 def get_diagnosis_service() -> DiagnosisService:
     return DiagnosisService()
+
+
+@lru_cache(maxsize=1)
+def get_medical_retriever() -> MedicalRetriever:
+    return MedicalRetriever()
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -46,8 +52,8 @@ async def upload_report(file: UploadFile = File(...)):
 
 @router.post("/retrieve-medical-context")
 async def retrieve_medical_context(payload: PatientInput, db: AsyncSession = Depends(get_session)):
-    result = await get_diagnosis_service().diagnose(payload, db)
-    return {"retrieval_context": result.retrieval_context}
+    retrieval_context = get_medical_retriever().retrieve(payload.symptoms_text, top_k=5)
+    return {"retrieval_context": retrieval_context}
 
 
 @router.post("/generate-summary")

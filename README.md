@@ -91,13 +91,53 @@ npm run dev
 
 ## Dataset Generation
 
-Generate demo synthetic patient records:
+Generate synthetic records:
 
 ```bash
 python scripts/generate_synthetic_data.py
 ```
 
 Output: `datasets/synthetic_patient_records.csv` (5,000 rows)
+
+## Real Dataset Pipeline (Symptom2Disease)
+
+```bash
+python scripts/load_medical_datasets.py --source "datasets/Symptom2Disease.csv" --out "datasets/raw/symptom2disease_raw.csv"
+python scripts/preprocess_clinical_records.py --input "datasets/raw/symptom2disease_raw.csv" --output "datasets/processed/clinical_records.csv"
+```
+
+Normalized schema in `datasets/processed/clinical_records.csv`:
+
+- `symptoms`
+- `diagnosis`
+- `medications`
+- `notes`
+- `source`
+
+## RAG Ingestion Workflow
+
+```bash
+cd backend
+python -m rag.ingest --source-dir ../datasets/processed --batch-size 32
+```
+
+Supports TXT/PDF/CSV input and stores metadata-rich chunks in Pinecone (`source`, `disease`, `chunk_id`, `section`).
+
+## Classifier Training and Evaluation
+
+```bash
+python scripts/train_disease_classifier.py --input datasets/processed/clinical_records.csv --model-dir backend/models
+python scripts/evaluate_classifier.py --input datasets/processed/clinical_records.csv --model-dir backend/models
+python scripts/evaluate_rag.py --input datasets/processed/clinical_records.csv --top-k 5
+python scripts/benchmark_latency.py --base-url http://127.0.0.1:8000/api/v1 --runs 5
+```
+
+Detailed docs:
+
+- `docs/architecture.md`
+- `docs/pipeline.md`
+- `docs/evaluation.md`
+- `docs/benchmarks.md`
 
 ## Deployment
 

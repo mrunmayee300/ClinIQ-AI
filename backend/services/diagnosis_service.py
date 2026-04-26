@@ -39,7 +39,7 @@ class DiagnosisService:
         retrieval_started = time.perf_counter()
         retrieval_context = self._retrieve_context(payload.symptoms_text)
         retrieval_latency_ms = (time.perf_counter() - retrieval_started) * 1000
-        final_state = self.graph.invoke(
+        final_state = await self.graph.ainvoke(
             {
                 "patient_input": payload_dict,
                 "extracted_entities": entities.model_dump(),
@@ -76,6 +76,8 @@ class DiagnosisService:
             summary=summary,
             agent_trace=final_state.get("agent_trace", []),
             retrieval_context=retrieval_context,
+            retrieval_latency_ms=round(retrieval_latency_ms, 2),
+            total_latency_ms=round(total_ms, 2),
         )
         self.cache.set_json("diagnose", payload_dict, response.model_dump())
         return response

@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 
 from models.schemas import DiseaseRank, TreatmentRecommendation
+from nlp.disease_ranker import DiseaseRanker
 
 
 DISEASE_RULES = {
@@ -11,10 +12,12 @@ DISEASE_RULES = {
     "covid-19": {"fever", "shortness of breath", "cough", "fatigue"},
     "angina": {"chest pain", "shortness of breath"},
 }
+ranker = DiseaseRanker()
 
 
 def symptom_analysis_agent(state):
     entities = state.get("extracted_entities", {})
+    state["symptoms"] = entities.get("symptoms", [])
     trace = state.get("agent_trace", [])
     trace.append({"agent": "Symptom Analysis Agent", "status": "completed", "symptom_count": len(entities.get("symptoms", []))})
     state["agent_trace"] = trace
@@ -22,6 +25,7 @@ def symptom_analysis_agent(state):
 
 
 def medical_knowledge_retrieval_agent(state):
+    state["retrieved_docs"] = state.get("retrieval_context", [])
     trace = state.get("agent_trace", [])
     trace.append(
         {"agent": "Medical Knowledge Retrieval Agent", "status": "completed", "documents": len(state.get("retrieval_context", []))}
@@ -31,6 +35,16 @@ def medical_knowledge_retrieval_agent(state):
 
 
 def disease_ranking_agent(state):
+    patient_text = state.get("patient_input", {}).get("symptoms_text", "")
+    model_ranked = ranker.rank(patient_text, top_k=5)
+    if model_ranked:
+        state["disease_ranking"] = model_ranked
+        state["disease_scores"] = {item["disease"]: item["confidence"] for item in model_ranked}
+        state.setdefault("agent_trace", []).append(
+            {"agent": "Disease Ranking Agent", "status": "completed", "ranked_count": len(model_ranked), "mode": "classifier"}
+        )
+        return state
+
     symptoms = set(state.get("extracted_entities", {}).get("symptoms", []))
     scores = Counter()
     for disease, disease_symptoms in DISEASE_RULES.items():
@@ -43,7 +57,10 @@ def disease_ranking_agent(state):
         DiseaseRank(disease=d, confidence=round(c, 3), reasoning=f"Matched {int(c * len(DISEASE_RULES[d]))} key symptoms.").model_dump()
         for d, c in ranked
     ]
-    state.setdefault("agent_trace", []).append({"agent": "Disease Ranking Agent", "status": "completed", "ranked_count": len(ranked)})
+    state["disease_scores"] = {d: float(c) for d, c in ranked}
+    state.setdefault("agent_trace", []).append(
+        {"agent": "Disease Ranking Agent", "status": "completed", "ranked_count": len(ranked), "mode": "rule_fallback"}
+    )
     return state
 
 
@@ -68,6 +85,7 @@ def treatment_recommendation_agent(state):
         emergency_flags=["Persistent chest pain", "Severe breathing difficulty"] if risk == "high" else [],
     )
     state["treatment_recommendations"] = recommendation.model_dump()
+    state["recommendations"] = recommendation.lifestyle_advice
     state.setdefault("agent_trace", []).append({"agent": "Treatment Recommendation Agent", "status": "completed"})
     return state
 
@@ -84,5 +102,6 @@ def clinical_summary_agent(state):
         ],
         "treatment_plan": state.get("treatment_recommendations", {}),
     }
+    state["summary"] = f"Risk level {state.get('risk_level', 'medium')} with {len(state.get('disease_ranking', []))} candidate diagnoses."
     state.setdefault("agent_trace", []).append({"agent": "Clinical Summary Agent", "status": "completed"})
     return state

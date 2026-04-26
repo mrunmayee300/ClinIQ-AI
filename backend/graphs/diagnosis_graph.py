@@ -10,11 +10,11 @@ from agents.medical_agents import (
     symptom_analysis_agent,
     treatment_recommendation_agent,
 )
-from graphs.state import DiagnosisState
+from graphs.state import ClinicalState
 
 
 def build_diagnosis_graph():
-    graph = StateGraph(DiagnosisState)
+    graph = StateGraph(ClinicalState)
     graph.add_node("symptom_analysis_agent_node", symptom_analysis_agent)
     graph.add_node("knowledge_retrieval_agent_node", medical_knowledge_retrieval_agent)
     graph.add_node("disease_ranking_agent_node", disease_ranking_agent)

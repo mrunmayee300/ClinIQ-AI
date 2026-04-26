@@ -18,6 +18,9 @@ class MedicalRetriever:
                 "score": m.get("score", 0.0),
                 "text": m.get("metadata", {}).get("text", ""),
                 "source": m.get("metadata", {}).get("source", "unknown"),
+                "disease": m.get("metadata", {}).get("disease", "unknown"),
+                "chunk_id": m.get("metadata", {}).get("chunk_id", ""),
+                "section": m.get("metadata", {}).get("section", "unknown"),
             }
             for m in matches
         ]
