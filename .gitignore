@@ -87,4 +87,30 @@ temp/
 # Mac/Linux
 # =========================
 *.swp
-```
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Frontend
+node_modules/
+.next/
+
+# Environment
+.env
+
+# Logs
+*.log
+
+# Dataset files
+datasets/raw/
+datasets/processed/
+
+# ML models
+models/
+*.bin
+*.pth
+*.pt
+
+# Cache
+.cache/
